@@ -1,4 +1,4 @@
-from pprint import pprint
+import copy
 
 
 class Algorithm:
@@ -7,18 +7,7 @@ class Algorithm:
 
 
 class ExampleAlgorithm(Algorithm):
-
-    # tiles je bool matrica gde je True prepreka
-    # variables za kljuceve ima 0h, 0v, itd. Za vrednosti duzine reci koje idu na to mesto
-    # variables deluje beskorisno nakon discard_incorrect_size_words
-    # words je lista reci
-    #
-    # return je lista listi od 3 promenljive
-    # prva je oznaka izabrane pozicije
-    # indeks vrednosti izabrane promenljive iz njenog domena, None ako se radi backtrack
-    # recnik domains, kljucevi su oznake svih promenljivih, vrednosti lista mogucih reci
     def get_algorithm_steps(self, tiles, variables, words):
-        pprint(variables)
         moves_list = [['0h', 0], ['0v', 2], ['1v', 1], ['2h', 1], ['4h', None],
                       ['2h', None], ['1v', None], ['0v', 3], ['1v', 1], ['2h', 1],
                       ['4h', 4], ['5v', 5]]
@@ -30,12 +19,32 @@ class ExampleAlgorithm(Algorithm):
 
 
 class Backtracking(Algorithm):
-    def get_algorithm_steps(self, tiles, variables, words):
+    def get_algorithm_steps(self, tiles: list, variables: dict, words: list):
         domains = {var: [word for word in words] for var in variables}
         discard_incorrect_size_words(variables, domains)
         solutions = []
         indexes_to_pick = [0] * len(variables)
-        backtrack_search(tiles, variables, domains, solutions, 0, indexes_to_pick)
+        backtrack_search(tiles, variables, domains, solutions, indexes_to_pick)
+        return solutions
+
+
+class ForwardChecking(Algorithm):
+    def get_algorithm_steps(self, tiles: list, variables: dict, words: list):
+        domains = {var: [word for word in words] for var in variables}
+        discard_incorrect_size_words(variables, domains)
+        solutions = []
+        indexes_to_pick = [0] * len(variables)
+        forward_check_search(tiles, variables, domains, solutions, indexes_to_pick)
+        return solutions
+
+
+class ArcConsistency(Algorithm):
+    def get_algorithm_steps(self, tiles: list, variables: dict, words: list):
+        domains = {var: [word for word in words] for var in variables}
+        discard_incorrect_size_words(variables, domains)
+        solutions = []
+        indexes_to_pick = [0] * len(variables)
+        arc_consistency_search(tiles, variables, domains, solutions, indexes_to_pick)
         return solutions
 
 
@@ -44,63 +53,149 @@ def discard_incorrect_size_words(variables: dict, domains: dict):
         domains[position] = list(filter(lambda word: len(word) == variables[position], words))
 
 
-def backtrack_search(tiles, variables: dict, domains, solutions, level, indexes_to_pick):
-    if level == len(variables):
-        return
-    current_variable = list(variables.keys())[level]
-    if indexes_to_pick[level] == len(domains[current_variable]):
-        solutions.append([current_variable, None, domains])
-        delete_word(tiles, current_variable, variables[current_variable])
-        indexes_to_pick[level] = 0
-        backtrack_search(tiles, variables, domains, solutions, level - 1, indexes_to_pick)
-        return
-    current_value_index = indexes_to_pick[level]
-    indexes_to_pick[level] += 1
-    if is_consistent_assignment(tiles, current_variable, domains[current_variable][current_value_index]):
-        solutions.append([current_variable, current_value_index, domains])
-        add_word(tiles, current_variable, domains[current_variable][current_value_index])
-        backtrack_search(tiles, variables, domains, solutions, level + 1, indexes_to_pick)
-    else:
-        backtrack_search(tiles, variables, domains, solutions, level, indexes_to_pick)
+def backtrack_search(tiles: list, variables: dict, domains: dict, solutions: list, indexes_to_pick: list):
+    level = 0
+    while level != len(variables):
+        current_variable = list(variables.keys())[level]
+
+        if indexes_to_pick[level] == len(domains[current_variable]):
+            solutions.append([current_variable, None, domains])
+            last_variable = list(variables.keys())[level - 1]
+            delete_word(tiles, last_variable, variables[last_variable])
+            indexes_to_pick[level] = 0
+            level -= 1
+            continue
+
+        current_value_index = indexes_to_pick[level]
+        indexes_to_pick[level] += 1
+        if is_consistent_assignment(tiles, current_variable, domains[current_variable][current_value_index]):
+            solutions.append([current_variable, current_value_index, domains])
+            add_word(tiles, current_variable, domains[current_variable][current_value_index])
+            level += 1
+        continue
+
+
+def forward_check_search(tiles: list, variables: dict, domains: dict, solutions: list, indexes_to_pick: list):
+    level = 0
+    while level != len(variables):
+        current_variable = list(variables.keys())[level]
+
+        if any_domain_is_empty(domains):
+            domains = solutions[-2][2]
+            last_variable = list(variables.keys())[level - 1]
+            delete_word(tiles, last_variable, variables[last_variable])
+            level -= 1
+            continue
+
+        current_value_index = indexes_to_pick[level]
+        indexes_to_pick[level] += 1
+        if is_consistent_assignment(tiles, current_variable, domains[current_variable][current_value_index]):
+            forward_check(tiles, variables, domains, level, domains[current_variable][current_value_index])
+            solutions.append([current_variable, current_value_index, copy.deepcopy(domains)])
+            add_word(tiles, current_variable, domains[current_variable][current_value_index])
+            level += 1
+        continue
+
+
+def arc_consistency_search(tiles: list, variables: dict, domains: dict, solutions: list, indexes_to_pick: list):
     return
 
 
 def is_consistent_assignment(tiles: list, variable: str, word: str):
-    width = len(tiles[0])
-    start_index = int(variable[:-1])
+    index = int(variable[:-1])
     is_horizontal = variable[-1] == "h"
-    coordinates = [start_index // width, start_index % width]
+
     for char in word:
-        if tiles[coordinates[0]][coordinates[1]] not in [False, char]:
+        current_mark = get_matrix_element(tiles, index)
+        if not (current_mark is False or char in current_mark):
             return False
-        if is_horizontal:
-            coordinates[1] += 1
-        else:
-            coordinates[0] += 1
+
+        index = inc_matrix_index(tiles, index, is_horizontal)
     return True
 
 
-def delete_word(tiles: list, variable, length):
-    width = len(tiles[0])
-    start_index = int(variable[:-1])
+def forward_check(tiles: list, variables: dict, domains: dict, level: int, word: str):
+    new_word_letter_positions = get_index_list(tiles, variables, list(variables.keys())[level])
+
+    for variable in list(variables.keys())[level + 1:]:
+        variable_letter_positions = get_index_list(tiles, variables, variable)
+        possible_conflict_positions = list(set(new_word_letter_positions).intersection(variable_letter_positions))
+
+        if len(possible_conflict_positions) == 0:
+            continue
+
+        for possible_word in list(domains[variable]):
+            for conflict_index in possible_conflict_positions:
+                added_char = word[new_word_letter_positions.index(conflict_index)]
+                words_char = possible_word[variable_letter_positions.index(conflict_index)]
+                if words_char != added_char:
+                    domains[variable].remove(possible_word)
+                    break
+    return True
+
+
+def delete_word(tiles: list, variable: str, length: int):
+    index = int(variable[:-1])
     is_horizontal = variable[-1] == "h"
-    coordinates = [start_index // width, start_index % width]
     for i in range(length):
-        tiles[coordinates[0]][coordinates[1]] = False
-        if is_horizontal:
-            coordinates[1] += 1
+        current_mark = get_matrix_element(tiles, index)
+        if len(current_mark) == 1:
+            set_matrix_element(tiles, index, False)
         else:
-            coordinates[0] += 1
+            set_matrix_element(tiles, index, current_mark[:-1])
+        index = inc_matrix_index(tiles, index, is_horizontal)
+    return
 
 
-def add_word(tiles, variable, word: str):
+def add_word(tiles: list, variable: str, word: str):
+    index = int(variable[:-1])
+    is_horizontal = variable[-1] == "h"
+    for char in word:
+        current_mark = get_matrix_element(tiles, index)
+        if not current_mark:
+            set_matrix_element(tiles, index, char)
+        else:
+            append_to_matrix_element(tiles, index, char)
+        index = inc_matrix_index(tiles, index, is_horizontal)
+    return
+
+
+def get_index_list(tiles: list, variables: dict, variable: str):
     width = len(tiles[0])
     start_index = int(variable[:-1])
     is_horizontal = variable[-1] == "h"
-    coordinates = [start_index // width, start_index % width]
-    for char in word:
-        tiles[coordinates[0]][coordinates[1]] = char
-        if is_horizontal:
-            coordinates[1] += 1
-        else:
-            coordinates[0] += 1
+    if is_horizontal:
+        return range(start_index, start_index + variables[variable])
+    else:
+        return range(start_index, start_index + width * variables[variable], width)
+
+
+def get_matrix_element(tiles: list, index: int):
+    width = len(tiles[0])
+    return tiles[index // width][index % width]
+
+
+def set_matrix_element(tiles: list, index: int, value):
+    width = len(tiles[0])
+    tiles[index // width][index % width] = value
+
+
+def append_to_matrix_element(tiles: list, index: int, postfix):
+    width = len(tiles[0])
+    tiles[index // width][index % width] += postfix
+
+
+def inc_matrix_index(tiles: list, index: int, is_horizontal_mode: bool):
+    width = len(tiles[0])
+    if is_horizontal_mode:
+        index += 1
+    else:
+        index += width
+    return index
+
+
+def any_domain_is_empty(domains: dict):
+    for domain in domains.values():
+        if len(domain) == 0:
+            return True
+    return False
