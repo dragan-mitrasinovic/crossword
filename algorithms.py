@@ -23,30 +23,21 @@ class Backtracking(Algorithm):
     def get_algorithm_steps(self, tiles: list, variables: dict, words: list):
         domains = {var: [word for word in words] for var in variables}
         discard_incorrect_size_words(variables, domains)
-        solutions = []
-        indexes_to_pick = [0] * len(variables)
-        backtrack_search(tiles, variables, domains, solutions, indexes_to_pick)
-        return solutions
+        return backtrack_search(tiles, variables, domains)
 
 
 class ForwardChecking(Algorithm):
     def get_algorithm_steps(self, tiles: list, variables: dict, words: list):
         domains = {var: [word for word in words] for var in variables}
         discard_incorrect_size_words(variables, domains)
-        solutions = []
-        indexes_to_pick = [0] * len(variables)
-        forward_check_search(tiles, variables, domains, solutions, indexes_to_pick)
-        return solutions
+        return forward_check_search(tiles, variables, domains)
 
 
 class ArcConsistency(Algorithm):
     def get_algorithm_steps(self, tiles: list, variables: dict, words: list):
         domains = {var: [word for word in words] for var in variables}
         discard_incorrect_size_words(variables, domains)
-        solutions = []
-        indexes_to_pick = [0] * len(variables)
-        arc_consistency_search(tiles, variables, domains, solutions, indexes_to_pick)
-        return solutions
+        return arc_consistency_search(tiles, variables, domains)
 
 
 def discard_incorrect_size_words(variables: dict, domains: dict):
@@ -54,8 +45,11 @@ def discard_incorrect_size_words(variables: dict, domains: dict):
         domains[position] = list(filter(lambda word: len(word) == variables[position], words))
 
 
-def backtrack_search(tiles: list, variables: dict, domains: dict, solutions: list, indexes_to_pick: list):
+def backtrack_search(tiles: list, variables: dict, domains: dict):
+    solutions = []
+    indexes_to_pick = [0] * len(variables)
     level = 0
+
     while level != len(variables):
         current_variable = list(variables.keys())[level]
 
@@ -74,10 +68,14 @@ def backtrack_search(tiles: list, variables: dict, domains: dict, solutions: lis
             add_word(tiles, current_variable, domains[current_variable][current_value_index])
             level += 1
         continue
+    return solutions
 
 
-def forward_check_search(tiles: list, variables: dict, domains: dict, solutions: list, indexes_to_pick: list):
+def forward_check_search(tiles: list, variables: dict, domains: dict):
+    solutions = []
+    indexes_to_pick = [0] * len(variables)
     level = 0
+
     while level != len(variables):
         current_variable = list(variables.keys())[level]
 
@@ -96,10 +94,14 @@ def forward_check_search(tiles: list, variables: dict, domains: dict, solutions:
             add_word(tiles, current_variable, domains[current_variable][current_value_index])
             level += 1
         continue
+    return solutions
 
 
-def arc_consistency_search(tiles: list, variables: dict, domains: dict, solutions: list, indexes_to_pick: list):
+def arc_consistency_search(tiles: list, variables: dict, domains: dict):
+    solutions = []
+    indexes_to_pick = [0] * len(variables)
     level = 0
+
     while level != len(variables):
         current_variable = list(variables.keys())[level]
 
@@ -122,6 +124,7 @@ def arc_consistency_search(tiles: list, variables: dict, domains: dict, solution
             add_word(tiles, current_variable, domains[current_variable][current_value_index])
             level += 1
         continue
+    return solutions
 
 
 def is_consistent_assignment(tiles: list, variable: str, word: str):
