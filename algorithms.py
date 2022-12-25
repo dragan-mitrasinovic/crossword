@@ -167,9 +167,9 @@ def arc_consistency_check_fails(tiles: list, variables: dict, domains: dict, lev
         if len(possible_conflict_positions) != 0:
             possibly_impacted_variables.append(variable)
 
-    for pair in itertools.permutations(possibly_impacted_variables, 2):
-        x = pair[0]
-        y = pair[1]
+    combinations = itertools.product(possibly_impacted_variables, list(variables.keys())[level + 1:])
+
+    for x, y in combinations:
         x_letter_positions = get_index_list(tiles, variables, x)
         y_letter_positions = get_index_list(tiles, variables, y)
         possible_conflict_positions = list(set(x_letter_positions).intersection(y_letter_positions))
